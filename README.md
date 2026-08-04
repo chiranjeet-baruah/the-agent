@@ -21,7 +21,7 @@ Runner](https://www.docker.com/blog/run-llms-locally/) as the local model backen
 ```sh
 docker model pull ai/llama3.2
 
-go run ./cmd/the-agent   # add GOTOOLCHAIN=go1.26.5 prefix if needed, see above
+go run ./cmd/the-agent   # run from repo root — see Config below; add GOTOOLCHAIN=go1.26.5 prefix if needed
 ```
 
 The server listens on `:8080` and checks that Docker Model Runner is reachable at startup,
@@ -70,10 +70,19 @@ get an error (`502`) instead of succeeding — `adk-go`'s in-memory session stor
 non-atomically. Retry, or avoid firing concurrent requests for a session_id that hasn't been used
 yet. Verified with `-race`: no data race, just this narrow logic race.
 
-## Config (env vars)
+## Config
 
-| Var | Default | Purpose |
+Defaults live in [`config/config.yaml`](config/config.yaml), loaded via
+[spf13/viper](https://github.com/spf13/viper) (`internal/config`). Any key can be
+overridden with an environment variable of the same name — useful for one-off
+runs without editing the file.
+
+| Key / env var | Default | Purpose |
 |---|---|---|
-| `MODEL` | `ai/llama3.2` | Docker Model Runner model name |
-| `MODEL_RUNNER_BASE_URL` | `http://localhost:12434/engines/v1` | Model Runner's OpenAI-compatible base URL |
-| `PORT` | `8080` | HTTP listen port |
+| `model` / `MODEL` | `ai/llama3.2` | Docker Model Runner model name |
+| `model_runner_base_url` / `MODEL_RUNNER_BASE_URL` | `http://localhost:12434/engines/v1` | Model Runner's OpenAI-compatible base URL |
+| `port` / `PORT` | `8080` | HTTP listen port |
+
+`go run ./cmd/the-agent` must run from the repo root so `config/config.yaml`
+resolves via viper's relative `config` search path; the file is optional — if
+missing, hardcoded defaults (matching the checked-in file) apply.

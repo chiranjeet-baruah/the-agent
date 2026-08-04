@@ -6,30 +6,24 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 
 	gininboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/inbound/gin_inbound_adapter"
 	dockermodelrunneroutboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/outbound/dockermodelrunner_outbound_adapter"
+	"github.com/chiranjeet14/the-agent/internal/config"
 	"github.com/chiranjeet14/the-agent/internal/domain"
 )
 
-func getenv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
 func main() {
-	modelName := getenv("MODEL", "ai/llama3.2")
-	modelRunnerBaseURL := getenv("MODEL_RUNNER_BASE_URL", "http://localhost:12434/engines/v1")
-	port := getenv("PORT", "8080")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	engine, err := dockermodelrunneroutboundadapter.New(dockermodelrunneroutboundadapter.Config{
-		ModelName: modelName,
-		BaseURL:   modelRunnerBaseURL,
+		ModelName: cfg.ModelName,
+		BaseURL:   cfg.ModelRunnerBaseURL,
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize agent engine: %v", err)
@@ -37,7 +31,7 @@ func main() {
 
 	ctx := context.Background()
 	if err := engine.Ping(ctx); err != nil {
-		log.Fatalf("Docker Model Runner not reachable at %s: %v\nIs `docker desktop enable model-runner --tcp=12434` done and is the model pulled?", modelRunnerBaseURL, err)
+		log.Fatalf("Docker Model Runner not reachable at %s: %v\nIs `docker desktop enable model-runner --tcp=12434` done and is the model pulled?", cfg.ModelRunnerBaseURL, err)
 	}
 
 	chatDomain := &domain.ChatDomain{Engine: engine}
@@ -49,8 +43,8 @@ func main() {
 		c.Status(http.StatusOK)
 	})
 
-	log.Printf("Listening on :%s (model=%s, model-runner=%s)", port, modelName, modelRunnerBaseURL)
-	if err := router.Run(":" + port); err != nil {
+	log.Printf("Listening on :%s (model=%s, model-runner=%s)", cfg.Port, cfg.ModelName, cfg.ModelRunnerBaseURL)
+	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

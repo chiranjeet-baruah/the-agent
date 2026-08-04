@@ -1,0 +1,3 @@
+model: ai/llama3.2
+model_runner_base_url: http://localhost:12434/engines/v1
+port: "8080"
