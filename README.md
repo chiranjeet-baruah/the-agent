@@ -37,7 +37,7 @@ within a session (in-memory only; history is lost on restart).
 ## Known limitation
 
 If two requests for the *same brand-new* `session_id` race each other (first use only), one may
-get a clean `502` instead of succeeding — `adk-go`'s in-memory session store checks-then-creates
+get an error (`502`) instead of succeeding — `adk-go`'s in-memory session store checks-then-creates
 non-atomically. Retry, or avoid firing concurrent requests for a session_id that hasn't been used
 yet. Verified with `-race`: no data race, just this narrow logic race.
 
