@@ -1,12 +1,17 @@
 # the-agent
 
 Minimal learning AI agent: [gin-gonic/gin](https://github.com/gin-gonic/gin) HTTP layer,
-[google/adk-go](https://github.com/google/adk-go) agent framework, [Ollama](https://ollama.com)
-as the local model backend.
+[google/adk-go](https://github.com/google/adk-go) agent framework, [Docker Model
+Runner](https://www.docker.com/blog/run-llms-locally/) as the local model backend.
 
 ## Prerequisites
 
-- Docker (for Ollama)
+- Docker Desktop with Model Runner enabled: `docker desktop enable model-runner --tcp=12434`
+  (note the `=`; `--tcp 12434` with a space is silently accepted but doesn't reliably apply —
+  verified live)
+  (auto-enabled by default on Apple Silicon in Docker Desktop 4.40+). Unlike a containerized
+  model server, Model Runner executes the inference engine as a host process, so it gets
+  native Metal acceleration on Apple Silicon.
 - Go >= 1.26.5 — `google.golang.org/adk/v2` requires it. If your local `go version` is older
   and `go env GOTOOLCHAIN` is `local`, prefix Go commands with `GOTOOLCHAIN=go1.26.5` (Go will
   download that toolchain on first use). If `GOTOOLCHAIN` is `auto` (Go's default), no prefix
@@ -15,14 +20,18 @@ as the local model backend.
 ## Run
 
 ```sh
-docker compose up -d
-docker compose exec ollama ollama pull llama3.2
+docker model pull ai/llama3.2
 
 go run .   # add GOTOOLCHAIN=go1.26.5 prefix if needed, see above
 ```
 
-The server listens on `:8080` and checks that Ollama is reachable at startup, failing fast
-with a clear message if it isn't.
+The server listens on `:8080` and checks that Docker Model Runner is reachable at startup,
+failing fast with a clear message if it isn't.
+
+Note: Model Runner implements the OpenAI **Chat Completions** API (`/chat/completions`), not
+the newer Responses API — that's why this project has its own small `internal/dmrmodel`
+adapter instead of reusing adk-go's `model/openaimodel` package, which is hardcoded to the
+Responses API.
 
 ## Try it
 
@@ -45,7 +54,6 @@ yet. Verified with `-race`: no data race, just this narrow logic race.
 
 | Var | Default | Purpose |
 |---|---|---|
-| `MODEL` | `llama3.2` | Ollama model name |
-| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama's OpenAI-compatible base URL |
-| `OLLAMA_API_KEY` | `ollama` | dummy key; Ollama ignores auth |
+| `MODEL` | `ai/llama3.2` | Docker Model Runner model name |
+| `MODEL_RUNNER_BASE_URL` | `http://localhost:12434/engines/v1` | Model Runner's OpenAI-compatible base URL |
 | `PORT` | `8080` | HTTP listen port |

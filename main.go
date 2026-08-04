@@ -21,10 +21,11 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
-// checkOllamaReachable does a quick GET against Ollama's OpenAI-compatible
-// models endpoint so a misconfigured/stopped Ollama fails loudly at startup
-// instead of the server silently 502ing on the first real request.
-func checkOllamaReachable(baseURL string) error {
+// checkModelRunnerReachable does a quick GET against Docker Model Runner's
+// OpenAI-compatible models endpoint so a disabled/misconfigured Model Runner
+// fails loudly at startup instead of the server silently 502ing on the first
+// real request.
+func checkModelRunnerReachable(baseURL string) error {
 	client := http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(baseURL + "/models")
 	if err != nil {
@@ -38,20 +39,18 @@ func checkOllamaReachable(baseURL string) error {
 }
 
 func main() {
-	modelName := getenv("MODEL", "llama3.2")
-	ollamaBaseURL := getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-	ollamaAPIKey := getenv("OLLAMA_API_KEY", "ollama")
+	modelName := getenv("MODEL", "ai/llama3.2")
+	modelRunnerBaseURL := getenv("MODEL_RUNNER_BASE_URL", "http://localhost:12434/engines/v1")
 	port := getenv("PORT", "8080")
 
-	if err := checkOllamaReachable(ollamaBaseURL); err != nil {
-		log.Fatalf("Ollama not reachable at %s: %v\nIs `docker compose up -d` running and is the model pulled?", ollamaBaseURL, err)
+	if err := checkModelRunnerReachable(modelRunnerBaseURL); err != nil {
+		log.Fatalf("Docker Model Runner not reachable at %s: %v\nIs `docker desktop enable model-runner --tcp 12434` done and is the model pulled?", modelRunnerBaseURL, err)
 	}
 
 	ctx := context.Background()
 	rnr, err := agent.New(ctx, agent.Config{
-		ModelName:     modelName,
-		OllamaBaseURL: ollamaBaseURL,
-		OllamaAPIKey:  ollamaAPIKey,
+		ModelName: modelName,
+		BaseURL:   modelRunnerBaseURL,
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
@@ -65,7 +64,7 @@ func main() {
 		c.Status(http.StatusOK)
 	})
 
-	log.Printf("Listening on :%s (model=%s, ollama=%s)", port, modelName, ollamaBaseURL)
+	log.Printf("Listening on :%s (model=%s, model-runner=%s)", port, modelName, modelRunnerBaseURL)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
