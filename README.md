@@ -1,8 +1,9 @@
 # the-agent
 
 Minimal learning AI agent: [gin-gonic/gin](https://github.com/gin-gonic/gin) HTTP layer,
-[google/adk-go](https://github.com/google/adk-go) agent framework, [Docker Model
-Runner](https://www.docker.com/blog/run-llms-locally/) as the local model backend.
+[google/adk-go](https://github.com/google/adk-go) agent framework, talking to any
+OpenAI-compatible Chat Completions backend — defaults to [Docker Model
+Runner](https://www.docker.com/blog/run-llms-locally/) for local dev (see Prerequisites).
 
 ## Prerequisites
 
@@ -25,12 +26,13 @@ go run ./cmd/the-agent   # run from repo root — see Config below; add GOTOOLCH
 ```
 
 The server listens on `:8080` by default (configurable, see Config below) and checks that
-Docker Model Runner is reachable at startup, failing fast with a clear message if it isn't.
+the configured LLM backend is reachable at startup, failing fast with a clear message if it
+isn't.
 
-Note: Model Runner implements the OpenAI **Chat Completions** API (`/chat/completions`), not
-the newer Responses API — that's why the outbound adapter below has its own small `model.LLM`
-implementation instead of reusing adk-go's `model/openaimodel` package, which is hardcoded to
-the Responses API.
+Note: not every OpenAI-compatible backend implements the newer Responses API — Docker Model
+Runner, for example, only exposes the OpenAI **Chat Completions** API (`/chat/completions`).
+That's why the outbound adapter below has its own small `model.LLM` implementation instead of
+reusing adk-go's `model/openaimodel` package, which is hardcoded to the Responses API.
 
 ## Architecture
 
@@ -44,9 +46,10 @@ internal/port/inbound/       ChatPort — the use case inbound adapters drive
 internal/port/outbound/      AgentEnginePort — what the domain needs from an LLM engine
 internal/model/              plain request/response DTOs
 internal/adapter/inbound/    gin_inbound_adapter — HTTP → ChatPort
-internal/adapter/outbound/   dockermodelrunner_outbound_adapter — AgentEnginePort → Docker
-                              Model Runner (adk-go LlmAgent/Runner + the Chat Completions
-                              model.LLM implementation live here)
+internal/adapter/outbound/   openaicompat_outbound_adapter — AgentEnginePort → any
+                              OpenAI-compatible Chat Completions backend (adk-go
+                              LlmAgent/Runner + the Chat Completions model.LLM
+                              implementation live here)
 ```
 
 The domain has exactly one implementation per port (no second inbound or outbound adapter is
@@ -81,8 +84,8 @@ runs without editing the file.
 
 | Key / env var | Default | Purpose |
 |---|---|---|
-| `model` / `MODEL` | `ai/llama3.2` | Docker Model Runner model name |
-| `model_runner_base_url` / `MODEL_RUNNER_BASE_URL` | `http://localhost:12434/engines/v1` | Model Runner's OpenAI-compatible base URL |
+| `model` / `MODEL` | `ai/llama3.2` | Model name requested from the configured backend |
+| `llm_base_url` / `LLM_BASE_URL` | `http://localhost:12434/engines/v1` | Base URL of the OpenAI-compatible Chat Completions backend |
 | `port` / `PORT` | `8080` | HTTP listen port |
 
 `go run ./cmd/the-agent` must run from the repo root so `config/config.yaml`

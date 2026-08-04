@@ -10,9 +10,9 @@ import (
 )
 
 type Config struct {
-	ModelName          string
-	ModelRunnerBaseURL string
-	Port               string
+	ModelName string
+	BaseURL   string
+	Port      string
 }
 
 func Load() (*Config, error) {
@@ -22,7 +22,7 @@ func Load() (*Config, error) {
 	v.AddConfigPath("config")
 
 	v.SetDefault("model", "ai/llama3.2")
-	v.SetDefault("model_runner_base_url", "http://localhost:12434/engines/v1")
+	v.SetDefault("llm_base_url", "http://localhost:12434/engines/v1")
 	v.SetDefault("port", "8080")
 	v.AutomaticEnv()
 
@@ -32,8 +32,8 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		ModelName:          v.GetString("model"),
-		ModelRunnerBaseURL: v.GetString("model_runner_base_url"),
-		Port:               v.GetString("port"),
+		ModelName: v.GetString("model"),
+		BaseURL:   v.GetString("llm_base_url"),
+		Port:      v.GetString("port"),
 	}, nil
 }

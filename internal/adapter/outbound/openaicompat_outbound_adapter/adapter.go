@@ -1,7 +1,7 @@
-// Package dockermodelrunner_outbound_adapter implements the outbound
-// AgentEnginePort using Docker Model Runner as the LLM backend, via a
-// google/adk-go LlmAgent + Runner.
-package dockermodelrunner_outbound_adapter
+// Package openaicompat_outbound_adapter implements the outbound
+// AgentEnginePort against any backend that exposes an OpenAI-compatible
+// Chat Completions API, via a google/adk-go LlmAgent + Runner.
+package openaicompat_outbound_adapter
 
 import (
 	"context"
@@ -45,12 +45,12 @@ func New(cfg Config) (*Adapter, error) {
 		// if Tools is set (see llm.go).
 	})
 	if err != nil {
-		return nil, fmt.Errorf("dockermodelrunner_outbound_adapter: init llmagent: %w", err)
+		return nil, fmt.Errorf("openaicompat_outbound_adapter: init llmagent: %w", err)
 	}
 
 	r, err := runner.NewInMemory("the-agent", a)
 	if err != nil {
-		return nil, fmt.Errorf("dockermodelrunner_outbound_adapter: init runner: %w", err)
+		return nil, fmt.Errorf("openaicompat_outbound_adapter: init runner: %w", err)
 	}
 	return &Adapter{runner: r, baseURL: cfg.BaseURL}, nil
 }
@@ -76,7 +76,7 @@ func (a *Adapter) RunTurn(ctx context.Context, userID, sessionID, message string
 	return reply.String(), nil
 }
 
-// Ping checks that Docker Model Runner is reachable, for startup checks.
+// Ping checks that the configured backend is reachable, for startup checks.
 func (a *Adapter) Ping(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/models", nil)
 	if err != nil {

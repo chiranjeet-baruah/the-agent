@@ -4,16 +4,24 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	gininboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/inbound/gin_inbound_adapter"
-	dockermodelrunneroutboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/outbound/dockermodelrunner_outbound_adapter"
+	openaicompatoutboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/outbound/openaicompat_outbound_adapter"
 	"github.com/chiranjeet14/the-agent/internal/config"
 	"github.com/chiranjeet14/the-agent/internal/domain"
 )
+
+// shutdownTimeout bounds how long the server waits for in-flight requests to
+// finish on shutdown before forcing the connections closed.
+const shutdownTimeout = 65 * time.Second
 
 func main() {
 	cfg, err := config.Load()
@@ -21,9 +29,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	engine, err := dockermodelrunneroutboundadapter.New(dockermodelrunneroutboundadapter.Config{
+	engine, err := openaicompatoutboundadapter.New(openaicompatoutboundadapter.Config{
 		ModelName: cfg.ModelName,
-		BaseURL:   cfg.ModelRunnerBaseURL,
+		BaseURL:   cfg.BaseURL,
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize agent engine: %v", err)
@@ -31,7 +39,7 @@ func main() {
 
 	ctx := context.Background()
 	if err := engine.Ping(ctx); err != nil {
-		log.Fatalf("Docker Model Runner not reachable at %s: %v\nIs `docker desktop enable model-runner --tcp=12434` done and is the model pulled?", cfg.ModelRunnerBaseURL, err)
+		log.Fatalf("LLM backend not reachable at %s: %v\nIs it running and is the model pulled?", cfg.BaseURL, err)
 	}
 
 	chatDomain := &domain.ChatDomain{Engine: engine}
@@ -43,8 +51,31 @@ func main() {
 		c.Status(http.StatusOK)
 	})
 
-	log.Printf("Listening on :%s (model=%s, model-runner=%s)", cfg.Port, cfg.ModelName, cfg.ModelRunnerBaseURL)
-	if err := router.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
+
+	shutdownCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	serveErr := make(chan error, 1)
+	go func() {
+		log.Printf("Listening on :%s (model=%s, backend=%s)", cfg.Port, cfg.ModelName, cfg.BaseURL)
+		serveErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server failed: %v", err)
+		}
+	case <-shutdownCtx.Done():
+		log.Print("Shutting down...")
+		stop()
+
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatalf("Graceful shutdown failed: %v", err)
+		}
+		log.Print("Shutdown complete")
 	}
 }
