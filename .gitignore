@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Binary produced by `go build .` / `go build ./...` at the repo root
+/the-agent
+
 # Test binary, built with `go test -c`
 *.test
 
