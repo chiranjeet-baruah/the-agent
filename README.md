@@ -24,8 +24,8 @@ docker model pull ai/llama3.2
 go run ./cmd/the-agent   # run from repo root — see Config below; add GOTOOLCHAIN=go1.26.5 prefix if needed
 ```
 
-The server listens on `:8080` and checks that Docker Model Runner is reachable at startup,
-failing fast with a clear message if it isn't.
+The server listens on `:8080` by default (configurable, see Config below) and checks that
+Docker Model Runner is reachable at startup, failing fast with a clear message if it isn't.
 
 Note: Model Runner implements the OpenAI **Chat Completions** API (`/chat/completions`), not
 the newer Responses API — that's why the outbound adapter below has its own small `model.LLM`
@@ -62,6 +62,8 @@ curl localhost:8080/chat -X POST -H 'Content-Type: application/json' \
 
 Reuse the same `session_id` for a multi-turn conversation — the agent remembers prior turns
 within a session (in-memory only; history is lost on restart).
+
+`GET /health` returns `200` once the server is up — no dependency checks beyond startup.
 
 ## Known limitation
 
