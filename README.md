@@ -8,10 +8,9 @@ Runner](https://www.docker.com/blog/run-llms-locally/) as the local model backen
 
 - Docker Desktop with Model Runner enabled: `docker desktop enable model-runner --tcp=12434`
   (note the `=`; `--tcp 12434` with a space is silently accepted but doesn't reliably apply —
-  verified live)
-  (auto-enabled by default on Apple Silicon in Docker Desktop 4.40+). Unlike a containerized
-  model server, Model Runner executes the inference engine as a host process, so it gets
-  native Metal acceleration on Apple Silicon.
+  verified live). Auto-enabled by default on Apple Silicon in Docker Desktop 4.40+. Unlike a
+  containerized model server, Model Runner executes the inference engine as a host process, so
+  it gets native Metal acceleration on Apple Silicon.
 - Go >= 1.26.5 — `google.golang.org/adk/v2` requires it. If your local `go version` is older
   and `go env GOTOOLCHAIN` is `local`, prefix Go commands with `GOTOOLCHAIN=go1.26.5` (Go will
   download that toolchain on first use). If `GOTOOLCHAIN` is `auto` (Go's default), no prefix
@@ -22,16 +21,37 @@ Runner](https://www.docker.com/blog/run-llms-locally/) as the local model backen
 ```sh
 docker model pull ai/llama3.2
 
-go run .   # add GOTOOLCHAIN=go1.26.5 prefix if needed, see above
+go run ./cmd/the-agent   # add GOTOOLCHAIN=go1.26.5 prefix if needed, see above
 ```
 
 The server listens on `:8080` and checks that Docker Model Runner is reachable at startup,
 failing fast with a clear message if it isn't.
 
 Note: Model Runner implements the OpenAI **Chat Completions** API (`/chat/completions`), not
-the newer Responses API — that's why this project has its own small `internal/dmrmodel`
-adapter instead of reusing adk-go's `model/openaimodel` package, which is hardcoded to the
-Responses API.
+the newer Responses API — that's why the outbound adapter below has its own small `model.LLM`
+implementation instead of reusing adk-go's `model/openaimodel` package, which is hardcoded to
+the Responses API.
+
+## Architecture
+
+Hexagonal (ports & adapters), per [this
+spec](https://prabogo.com/docs/architecture.html):
+
+```
+cmd/the-agent/               composition root: wires everything, starts the HTTP server
+internal/domain/             business logic; depends only on port interfaces, no frameworks
+internal/port/inbound/       ChatPort — the use case inbound adapters drive
+internal/port/outbound/      AgentEnginePort — what the domain needs from an LLM engine
+internal/model/              plain request/response DTOs
+internal/adapter/inbound/    gin_inbound_adapter — HTTP → ChatPort
+internal/adapter/outbound/   dockermodelrunner_outbound_adapter — AgentEnginePort → Docker
+                              Model Runner (adk-go LlmAgent/Runner + the Chat Completions
+                              model.LLM implementation live here)
+```
+
+The domain has exactly one implementation per port (no second inbound or outbound adapter is
+planned) — that's a deliberate trade of extra ceremony for strict adherence to the spec above,
+not a claim that this project needed the abstraction on its own merits.
 
 ## Try it
 
