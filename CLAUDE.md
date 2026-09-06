@@ -104,6 +104,31 @@ may get a `502` instead of succeeding — adk-go's in-memory session store check
 non-atomically. Verified with `-race`: no data race, just this narrow logic race. Retry, or
 avoid firing concurrent requests for a session_id that hasn't been used yet.
 
+## CI
+
+`.github/workflows/ci.yml`'s `build-test`/`lint` jobs use `actions/setup-go@v7` +
+`go-version-file: go.mod`, which already resolves and downloads the exact `go.mod`
+version (1.27.0) regardless of the runner's preinstalled Go. If a Go-version CI
+failure gets reported, adding an explicit `go-version: 'X.Y'` pin or downgrading to
+`actions/setup-go@v5` is not the fix — both were suggested and rejected this project.
+
+`govulncheck` and `gosec` jobs deliberately have no `setup-go` step:
+`govulncheck-action` provisions its own Go via its own `go-version-file` input, and
+`gosec` runs as a Docker container that ignores the host's Go entirely.
+
+Known gotcha: `gosec`'s container reports `GOTOOLCHAIN=local` regardless of host
+env — confirmed even with no `-e "GOTOOLCHAIN"` in the `docker run` invocation — so
+its bundled Go (1.26.5 in the pinned image) can't auto-upgrade to satisfy go.mod's
+`go >= 1.27.0`, failing with `go.mod requires go >= 1.27.0 (running go 1.26.5;
+GOTOOLCHAIN=local)`. Fix: step-level `env: GOTOOLCHAIN: auto` on the `gosec` step
+(docker `-e` overrides image env). If this resurfaces, check that override is still
+present before re-diagnosing from scratch; the durable fix is bumping to a gosec
+image built against Go >= go.mod's version and dropping the override.
+
+Third-party actions (`golangci-lint-action`, `gosec`) must stay pinned by commit
+SHA, not a bare version tag — the commit security review gate flags a bare tag on
+either as HIGH severity (supply-chain-pinning-regression).
+
 ## Config
 
 `config/config.yaml` defines a named `providers` map, loaded via
