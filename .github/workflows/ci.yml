@@ -51,9 +51,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
+      # Self-contained: this action installs its own Go via go-version-file,
+      # no separate setup-go step needed.
       - uses: golang/govulncheck-action@v1
         with:
           go-version-file: go.mod
@@ -65,9 +64,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
       - uses: securego/gosec@deb54465fea23d19a77f037e11e6589021f8501d # v2.29.0
         with:
           args: ./...
