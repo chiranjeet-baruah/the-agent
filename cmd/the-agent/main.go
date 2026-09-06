@@ -48,7 +48,7 @@ func main() {
 		c.Status(http.StatusOK)
 	})
 
-	srv := &http.Server{Addr: ":" + port, Handler: router}
+	srv := &http.Server{Addr: ":" + port, Handler: router, ReadHeaderTimeout: 5 * time.Second}
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
