@@ -1,28 +1,25 @@
 # the-agent
 
 Minimal learning AI agent: [gin-gonic/gin](https://github.com/gin-gonic/gin) HTTP layer,
-[google/adk-go](https://github.com/google/adk-go) agent framework, talking to any
-OpenAI-compatible Chat Completions backend — defaults to [Docker Model
-Runner](https://www.docker.com/blog/run-llms-locally/) for local dev (see Prerequisites).
+[google/adk-go](https://github.com/google/adk-go) agent framework, talking to any of several
+preconfigured hosted OpenAI-compatible Chat Completions providers (see Config).
 
 ## Prerequisites
 
-- Docker Desktop with Model Runner enabled: `docker desktop enable model-runner --tcp=12434`
-  (note the `=`; `--tcp 12434` with a space is silently accepted but doesn't reliably apply —
-  verified live). Auto-enabled by default on Apple Silicon in Docker Desktop 4.40+. Unlike a
-  containerized model server, Model Runner executes the inference engine as a host process, so
-  it gets native Metal acceleration on Apple Silicon.
-- Go >= 1.26.5 — `google.golang.org/adk/v2` requires it. If your local `go version` is older
-  and `go env GOTOOLCHAIN` is `local`, prefix Go commands with `GOTOOLCHAIN=go1.26.5` (Go will
+- An API key for whichever provider is active (see Config) — e.g. `GROQ_API_KEY` for the
+  shipped `groq` provider. Never commit a real key to `config/config.yaml`; set it via the
+  environment. `config.Load` fails fast at startup if no configured provider has its key set.
+- Go >= 1.27.0 (pinned in `go.mod`). If your local `go version` is older
+  and `go env GOTOOLCHAIN` is `local`, prefix Go commands with `GOTOOLCHAIN=go1.27.0` (Go will
   download that toolchain on first use). If `GOTOOLCHAIN` is `auto` (Go's default), no prefix
   is needed.
 
 ## Run
 
 ```sh
-docker model pull ai/llama3.2
+export GROQ_API_KEY=gsk_...
 
-go run ./cmd/the-agent   # run from repo root — see Config below; add GOTOOLCHAIN=go1.26.5 prefix if needed
+go run ./cmd/the-agent   # run from repo root — see Config below; add GOTOOLCHAIN=go1.27.0 prefix if needed
 ```
 
 The server listens on `:8080` by default (configurable, see Config below) and checks that
@@ -77,17 +74,56 @@ yet. Verified with `-race`: no data race, just this narrow logic race.
 
 ## Config
 
-Defaults live in [`config/config.yaml`](config/config.yaml), loaded via
-[spf13/viper](https://github.com/spf13/viper) (`internal/config`). Any key can be
-overridden with an environment variable of the same name — useful for one-off
-runs without editing the file.
+[`config/config.yaml`](config/config.yaml) defines a named `providers` map — `groq` and
+`openrouter` are enabled out of the box, with a commented-out `openai` entry as a template for
+adding it back — loaded via [spf13/viper](https://github.com/spf13/viper) (`internal/config`).
+Each entry lists a *preferred* model or two, a base URL, and the name of the env var holding
+its API key:
+
+```yaml
+providers:
+  groq:
+    model: [llama-3.3-70b-versatile, llama-3.1-8b-instant]
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+```
+
+`model:` is a preference order, not a fixed choice — at startup the app fetches that
+provider's *live* model list and uses the first preference that's actually present there,
+falling back to nothing (fails, doesn't guess) if none are. Providers rename/retire models
+over time, so a stale id here just gets skipped rather than breaking startup, as long as at
+least one entry is still valid.
 
 | Key / env var | Default | Purpose |
 |---|---|---|
-| `model` / `MODEL` | `ai/llama3.2` | Model name requested from the configured backend |
-| `llm_base_url` / `LLM_BASE_URL` | `http://localhost:12434/engines/v1` | Base URL of the OpenAI-compatible Chat Completions backend |
+| `provider` / `PROVIDER` | none — auto-select | If set, use only this provider. If unset, try every provider whose key env var is set and use the first one that's actually reachable. |
+| `model` / `MODEL` | (first live-matching preference) | Only applies when `PROVIDER` is set explicitly — used as-is (unvalidated) instead of matching against `model:`'s preferences |
 | `port` / `PORT` | `8080` | HTTP listen port |
 
-`go run ./cmd/the-agent` must run from the repo root so `config/config.yaml`
-resolves via viper's relative `config` search path; the file is optional — if
-missing, hardcoded defaults (matching the checked-in file) apply.
+**No `PROVIDER` set (default):** just export whichever provider's key you have, and it's used.
+Exporting more than one key at once is fine — auto-select tries each provider (alphabetically)
+and uses the first that responds:
+
+```sh
+export GROQ_API_KEY=gsk_...
+go run ./cmd/the-agent
+```
+
+**`PROVIDER` set explicitly:** only that provider is tried; startup fails fast if it's unknown
+or its key env var is unset — it won't silently fall back to another provider.
+
+```sh
+export GROQ_API_KEY=gsk_...
+export PROVIDER=groq
+go run ./cmd/the-agent
+```
+
+Known gotcha: the model-discovery call hits `GET {base_url}/models`, and not every provider
+validates the key there — OpenRouter's `/models` responds 200 even for an invalid key, so
+auto-select can pick it over a provider that would've worked, and the bad key only surfaces on
+the first real chat request. OpenAI and Groq do reject invalid keys at this endpoint.
+
+`go run ./cmd/the-agent` must run from the repo root so `config/config.yaml` resolves via
+viper's relative `config` search path — the file is required (there's no hardcoded provider
+map to fall back to). Startup now costs one model-list round-trip per candidate provider
+tried.

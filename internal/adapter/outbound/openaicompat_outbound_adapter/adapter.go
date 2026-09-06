@@ -6,7 +6,6 @@ package openaicompat_outbound_adapter
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -22,19 +21,20 @@ import (
 type Config struct {
 	ModelName string
 	BaseURL   string
+	APIKey    string
 }
 
 // Adapter implements outbound.AgentEnginePort.
 type Adapter struct {
-	runner  *runner.Runner
-	baseURL string
+	runner *runner.Runner
+	llm    *llmModel
 }
 
 var _ outbound.AgentEnginePort = (*Adapter)(nil)
 
 // New builds the LLM agent and returns an Adapter ready to process turns.
 func New(cfg Config) (*Adapter, error) {
-	llm := newLLMModel(cfg.ModelName, cfg.BaseURL)
+	llm := newLLMModel(cfg.ModelName, cfg.BaseURL, cfg.APIKey)
 
 	a, err := llmagent.New(llmagent.Config{
 		Name:        "the_agent",
@@ -52,7 +52,7 @@ func New(cfg Config) (*Adapter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("openaicompat_outbound_adapter: init runner: %w", err)
 	}
-	return &Adapter{runner: r, baseURL: cfg.BaseURL}, nil
+	return &Adapter{runner: r, llm: llm}, nil
 }
 
 // RunTurn runs one turn of the agent and returns its reply text.
@@ -78,18 +78,8 @@ func (a *Adapter) RunTurn(ctx context.Context, userID, sessionID, message string
 
 // Ping checks that the configured backend is reachable, for startup checks.
 func (a *Adapter) Ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/models", nil)
-	if err != nil {
-		return err
-	}
-	client := http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-	return nil
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err := a.llm.client.Models.List(ctx)
+	return err
 }
