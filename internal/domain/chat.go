@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/chiranjeet14/the-agent/internal/port/inbound"
-	"github.com/chiranjeet14/the-agent/internal/port/outbound"
+	"github.com/chiranjeet-baruah/the-agent/internal/port/inbound"
+	"github.com/chiranjeet-baruah/the-agent/internal/port/outbound"
 )
 
 // runTimeout bounds how long a single chat turn waits on the agent engine

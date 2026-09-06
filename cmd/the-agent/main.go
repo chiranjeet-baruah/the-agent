@@ -16,10 +16,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	gininboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/inbound/gin_inbound_adapter"
-	openaicompatoutboundadapter "github.com/chiranjeet14/the-agent/internal/adapter/outbound/openaicompat_outbound_adapter"
-	"github.com/chiranjeet14/the-agent/internal/config"
-	"github.com/chiranjeet14/the-agent/internal/domain"
+	gininboundadapter "github.com/chiranjeet-baruah/the-agent/internal/adapter/inbound/gin_inbound_adapter"
+	openaicompatoutboundadapter "github.com/chiranjeet-baruah/the-agent/internal/adapter/outbound/openaicompat_outbound_adapter"
+	"github.com/chiranjeet-baruah/the-agent/internal/config"
+	"github.com/chiranjeet-baruah/the-agent/internal/domain"
 )
 
 // shutdownTimeout bounds how long the server waits for in-flight requests to

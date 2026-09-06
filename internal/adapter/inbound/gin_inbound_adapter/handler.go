@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/chiranjeet14/the-agent/internal/model"
-	"github.com/chiranjeet14/the-agent/internal/port/inbound"
+	"github.com/chiranjeet-baruah/the-agent/internal/model"
+	"github.com/chiranjeet-baruah/the-agent/internal/port/inbound"
 )
 
 // Handler drives inbound.ChatPort from HTTP requests.
