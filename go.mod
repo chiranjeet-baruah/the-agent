@@ -1,4 +1,4 @@
-module github.com/chiranjeet14/the-agent
+module github.com/chiranjeet-baruah/the-agent
 
 go 1.27.0
 

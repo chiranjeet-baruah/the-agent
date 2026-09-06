@@ -14,7 +14,7 @@ import (
 	"google.golang.org/adk/v2/runner"
 	"google.golang.org/genai"
 
-	"github.com/chiranjeet14/the-agent/internal/port/outbound"
+	"github.com/chiranjeet-baruah/the-agent/internal/port/outbound"
 )
 
 // Config holds the settings needed to build the adapter's model.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chiranjeet14/the-agent/internal/config"
+	"github.com/chiranjeet-baruah/the-agent/internal/config"
 )
 
 func TestResolveModel(t *testing.T) {
