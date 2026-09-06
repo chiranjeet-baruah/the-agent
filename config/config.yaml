@@ -1,3 +1,20 @@
-model: ai/llama3.2
-llm_base_url: http://localhost:12434/engines/v1
+providers:
+  # openai:
+  #   model: [gpt-4o-mini, gpt-4o]
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: OPENAI_API_KEY
+  groq:
+    model: [llama-3.1-8b-instant, openai/gpt-oss-20b]
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+  openrouter:
+    model:
+      [
+        nvidia/nemotron-3.5-lightning:free,
+        thinkingmachines/inkling:free,
+        minimax/minimax-m3:free,
+      ]
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+
 port: "8080"

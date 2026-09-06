@@ -25,11 +25,16 @@ type llmModel struct {
 	name   string
 }
 
-// newLLMModel builds an llmModel. The configured backend's API is assumed
-// unauthenticated, so no API key handling is needed.
-func newLLMModel(name, baseURL string) *llmModel {
-	client := openai.NewClient(option.WithBaseURL(baseURL))
-	return &llmModel{client: &client, name: name}
+// newLLMModel builds an llmModel authenticated against a hosted
+// OpenAI-compatible backend via a bearer API key.
+func newLLMModel(name, baseURL, apiKey string) *llmModel {
+	return &llmModel{client: newClient(baseURL, apiKey), name: name}
+}
+
+// newClient builds an OpenAI-compatible client for a given backend.
+func newClient(baseURL, apiKey string) *openai.Client {
+	client := openai.NewClient(option.WithBaseURL(baseURL), option.WithAPIKey(apiKey))
+	return &client
 }
 
 func (m *llmModel) Name() string { return m.name }
